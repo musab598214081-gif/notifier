@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ch_calls">المكالمات</string>
+    <string name="ch_messages">الرسائل</string>
+    <string name="ch_missed">المكالمات الفائتة</string>
+    <string name="ch_ongoing">مكالمة جارية</string>
+    <string name="call_ongoing">مكالمة جارية — اضغط للعودة</string>
+    <string name="fsi_title">إظهار المكالمات على شاشة القفل</string>
+    <string name="fsi_body">لكي تملأ المكالمة الواردة الشاشة وترنّ مثل مكالمة الهاتف العادية، اسمح لـ Family Notifier بعرض الإشعارات بملء الشاشة.</string>
+    <string name="fsi_go">سماح</string>
+    <string name="later">ليس الآن</string>
+</resources>

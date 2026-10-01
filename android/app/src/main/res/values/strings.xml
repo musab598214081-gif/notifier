@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Family Notifier</string>
+    <string name="ch_calls">Calls</string>
+    <string name="ch_messages">Messages</string>
+    <string name="ch_missed">Missed calls</string>
+    <string name="ch_ongoing">Call in progress</string>
+    <string name="call_ongoing">Call in progress — tap to return</string>
+    <string name="fsi_title">Show calls on the lock screen</string>
+    <string name="fsi_body">So an incoming call fills the screen and rings like a normal phone call, allow Family Notifier to show full-screen notifications.</string>
+    <string name="fsi_go">Allow</string>
+    <string name="later">Not now</string>
+</resources>

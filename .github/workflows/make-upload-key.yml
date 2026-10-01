@@ -1,4 +1,31 @@
-.github/workflows/   (android-build.yml, make-upload-key.yml)
-android/
-README.md
-SETUP.md
+name: Make the upload key (once)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  key:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Make the key
+        run: |
+          PASS=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 24)
+          echo "::add-mask::$PASS"
+          keytool -genkeypair -keystore upload.jks -storetype PKCS12 -alias upload \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$PASS" -keypass "$PASS" -dname "CN=Family Notifier" > /dev/null
+          mkdir out
+          cp upload.jks out/
+          base64 -w0 upload.jks > out/UPLOAD_KEYSTORE_BASE64.txt
+          printf '%s' "$PASS"  > out/UPLOAD_KEYSTORE_PASSWORD.txt
+          printf '%s' "$PASS"  > out/UPLOAD_KEY_PASSWORD.txt
+          printf 'upload'      > out/UPLOAD_KEY_ALIAS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upload-key-KEEP-PRIVATE
+          path: out
+          retention-days: 1

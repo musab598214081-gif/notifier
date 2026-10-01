@@ -1,0 +1,87 @@
+name: Build the Android app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      APP_URL: ${{ vars.APP_URL }}
+      APP_ID: ${{ vars.APP_ID }}
+      HAS_PLAY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the setup
+        env:
+          GS: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          KS: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+          KP: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+        run: |
+          missing=""
+          [ -n "$APP_URL" ] || missing="$missing APP_URL(variable)"
+          [ -n "$APP_ID" ]  || missing="$missing APP_ID(variable)"
+          [ -n "$GS" ]      || missing="$missing GOOGLE_SERVICES_JSON(secret)"
+          [ -n "$KS" ]      || missing="$missing UPLOAD_KEYSTORE_BASE64(secret)"
+          [ -n "$KP" ]      || missing="$missing UPLOAD_KEYSTORE_PASSWORD(secret)"
+          if [ -n "$missing" ]; then
+            echo "::error::Not set up yet - missing:$missing. See SETUP.md, step 3."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Android SDK 36
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null || true
+
+      - name: Put the secrets in place
+        env:
+          GS: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          KS: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$GS" > android/app/google-services.json
+          printf '%s' "$KS" | base64 -d > "$RUNNER_TEMP/upload.jks"
+
+      - name: Build
+        working-directory: android
+        env:
+          UPLOAD_KEYSTORE_FILE: ${{ runner.temp }}/upload.jks
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          gradle --no-daemon bundleRelease assembleRelease \
+            -PappUrl="$APP_URL" -PappId="$APP_ID" -PversionCode=$((100 + BUILD_NUMBER))
+
+      - name: Keep the built app
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-notifier-${{ github.run_number }}
+          path: |
+            android/app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
+
+      - name: Send to Google Play (internal testing)
+        if: env.HAS_PLAY == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ vars.APP_ID }}
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed

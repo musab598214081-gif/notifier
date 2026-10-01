@@ -8,7 +8,7 @@ plugins {
 
 /* Set by the GitHub workflow (repository variables APP_URL and APP_ID). */
 val appUrl = (project.findProperty("appUrl") as String?)?.takeIf { it.isNotBlank() } ?: "https://example.com/"
-val appHost = java.net.URI(appUrl).host ?: "example.com"
+   val appHost = uri(appUrl).host ?: "example.com"
 val appId = (project.findProperty("appId") as String?)?.takeIf { it.isNotBlank() } ?: "app.family.notifyer"
 val buildNumber = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
 

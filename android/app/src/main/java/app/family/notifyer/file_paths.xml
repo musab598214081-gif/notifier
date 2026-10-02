@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lets the installer read the APK the app downloaded into its own cache. -->
+<paths>
+    <cache-path name="cache" path="." />
+</paths>

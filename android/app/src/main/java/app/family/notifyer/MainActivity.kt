@@ -46,6 +46,7 @@ import java.lang.ref.WeakReference
  * in the background (CallService).
  */
 class MainActivity : AppCompatActivity() {
+    lateinit var updater: Updater
 
     companion object {
         const val HOW_OPEN = "open"       /* the notification was tapped */
@@ -137,6 +138,9 @@ class MainActivity : AppCompatActivity() {
         audio = FamilyAudioBridge(this)
         web.addJavascriptInterface(audio, "FamilyAudio")
         web.addJavascriptInterface(FamilyAppBridge(this), "FamilyApp")
+        updater = Updater(this)
+        web.addJavascriptInterface(updater, "FamilyUpdate")
+        updater.cleanUp()                    /* a finished (or abandoned) update's file */
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {

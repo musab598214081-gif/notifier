@@ -261,8 +261,17 @@ class MainActivity : AppCompatActivity() {
         val how = i.getStringExtra("how")
         val kind = i.getStringExtra("kind")
         if (url == null && i.action == Intent.ACTION_VIEW) url = i.dataString
-        if (url == null && i.action == Intent.ACTION_SEND)
-            url = i.getStringExtra(Intent.EXTRA_TEXT)?.let { Regex("https://\\S+").find(it)?.value }
+        if (url == null && i.action == Intent.ACTION_SEND) {
+            val text = i.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+            url = Regex("https://\\S+").find(text)?.value
+            /* No link in the shared text, but the invitation's own 10-letter
+               code (read out over the phone, say): the page opens it the same. */
+            if (url == null) {
+                val code = Regex("\\b[2-9A-HJ-NP-Z]{10}\\b").find(
+                    text.uppercase().replace(Regex("(?<=[2-9A-Z])[\\s\\-](?=[2-9A-Z])"), ""))?.value
+                if (code != null) url = BuildConfig.APP_URL + "#i=" + code
+            }
+        }
 
         if (tag != null && (kind == "call" || kind == "group")) {
             /* Over the lock screen, like the phone's own incoming call. */
@@ -390,23 +399,4 @@ class MainActivity : AppCompatActivity() {
         }
         "ok"
     } catch (_: Exception) { "" }
-}
-override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    // ...existing WebView setup...
-    pendingUrl = intent?.dataString          // link that opened the app
-}
-
-override fun onNewIntent(intent: Intent) {
-    super.onNewIntent(intent)
-    setIntent(intent)
-    intent.dataString?.let { handOver(it) }  // app already open
-}
-
-// after the page has finished loading (onPageFinished):
-pendingUrl?.let { handOver(it); pendingUrl = null }
-
-private fun handOver(url: String) {
-    val js = "window.familyOpen && familyOpen(" + JSONObject.quote(url) + ")"
-    webView.evaluateJavascript(js, null)
 }

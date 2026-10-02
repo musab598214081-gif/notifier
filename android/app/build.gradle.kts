@@ -8,9 +8,12 @@ plugins {
 
 /* Set by the GitHub workflow (repository variables APP_URL and APP_ID). */
 val appUrl = (project.findProperty("appUrl") as String?)?.takeIf { it.isNotBlank() } ?: "https://example.com/"
-   val appHost = uri(appUrl).host ?: "example.com"
+val appHost = uri(appUrl).host ?: "example.com"
 val appId = (project.findProperty("appId") as String?)?.takeIf { it.isNotBlank() } ?: "app.family.notifyer"
 val buildNumber = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+/* Where the app looks for its own updates (latest.json, published by the
+   workflow with every build). Empty: the app never checks. */
+val updateUrl = (project.findProperty("updateUrl") as String?)?.takeIf { it.isNotBlank() } ?: ""
 
 android {
     namespace = "app.family.notifyer"
@@ -23,6 +26,7 @@ android {
         versionCode = buildNumber
         versionName = "1.0.$buildNumber"
         buildConfigField("String", "APP_URL", "\"$appUrl\"")
+        buildConfigField("String", "UPDATE_URL", "\"$updateUrl\"")
         manifestPlaceholders["appHost"] = appHost
     }
 

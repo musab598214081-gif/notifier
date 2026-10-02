@@ -233,6 +233,16 @@ object Notes {
             }
             b.setOngoing(true)
         }
+        /* Somebody's invitation expired and they asked for a new link: a tap
+           opens the request; Send link goes straight to sharing it. */
+        val rn = d.str("rn")
+        if (kind == "renew" && rn != null) {
+            val page = home.substringBefore('#')
+            url = page + "#renew=" + enc(rn)
+            val send = MainActivity.intent(c, page + "#renewsend=" + enc(rn), null, kind, MainActivity.HOW_OPEN)
+            b.addAction(0, act(c, "Send link"), activity(c, send, "s$tag"))
+            b.setOngoing(true)
+        }
         b.setContentIntent(activity(c, MainActivity.intent(c, url, null, kind, MainActivity.HOW_OPEN), "t$tag"))
         notify(c, "o:$tag", ID_OTHER, b.build())
     }
@@ -291,7 +301,7 @@ object Notes {
         Regex("^Ring me when free$") to "اتصل بي عندما تتفرغ",
         Regex("^This is how messages and other notifications look and sound\\.$") to "هكذا تبدو الرسائل والإشعارات الأخرى وتُسمع."
     )
-    private val AR_ACT = mapOf("Call back" to "معاودة الاتصال", "Approve" to "موافقة", "Reject" to "رفض")
+    private val AR_ACT = mapOf("Call back" to "معاودة الاتصال", "Approve" to "موافقة", "Reject" to "رفض", "Send link" to "إرسال الرابط")
 
     fun tr(c: Context, text: String): String {
         if (Store.lang(c) != "ar") return text

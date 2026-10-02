@@ -60,6 +60,15 @@ jobs:
           printf '%s' "$GS" > android/app/google-services.json
           printf '%s' "$KS" | base64 -d > "$RUNNER_TEMP/upload.jks"
 
+      - name: Version number for this build
+        id: ver
+        run: |
+          echo "code=$((100 + ${{ github.run_number }}))" >> "$GITHUB_OUTPUT"
+          echo "name=1.0.$((100 + ${{ github.run_number }}))" >> "$GITHUB_OUTPUT"
+          echo "base=${FAMILY_SERVER:-https://family-server.musab598214081.workers.dev}" >> "$GITHUB_OUTPUT"
+        env:
+          FAMILY_SERVER: ${{ vars.FAMILY_SERVER }}
+
       - name: Build
         working-directory: android
         env:
@@ -68,29 +77,29 @@ jobs:
           UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
           UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
-          UPDATE_URL: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
+          UPDATE_URL: ${{ steps.ver.outputs.base }}/app/latest.json
         run: |
           gradle --no-daemon bundleRelease assembleRelease \
-            -PappUrl="$APP_URL" -PappId="$APP_ID" -PversionCode=$((100 + BUILD_NUMBER)) \
+            -PappUrl="$APP_URL" -PappId="$APP_ID" -PversionCode=${{ steps.ver.outputs.code }} \
             -PupdateUrl="$UPDATE_URL"
 
       - name: Describe this build for the in-app updater
         env:
-          BUILD_NUMBER: ${{ github.run_number }}
+          CODE: ${{ steps.ver.outputs.code }}
           NOTES: ${{ github.event.head_commit.message }}
-          REPO: ${{ github.repository }}
+          BASE: ${{ steps.ver.outputs.base }}
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk app-release.apk
           python3 - <<'PY'
           import hashlib, json, os
           sha = hashlib.sha256(open("app-release.apk", "rb").read()).hexdigest()
-          n = 100 + int(os.environ["BUILD_NUMBER"])
+          n = int(os.environ["CODE"])
           notes = (os.environ.get("NOTES") or "").strip().splitlines()
           notes = notes[0][:140] if notes else ""
           json.dump({
             "versionCode": n,
             "versionName": "1.0.%d" % n,
-            "url": "https://github.com/%s/releases/latest/download/app-release.apk" % os.environ["REPO"],
+            "url": os.environ["BASE"] + "/app/app-release.apk",
             "sha256": sha,
             "notes": notes
           }, open("latest.json", "w"), indent=2)
@@ -100,8 +109,8 @@ jobs:
       - name: Publish as the latest release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ 100 + github.run_number }}
-          name: Family Notifier 1.0.${{ 100 + github.run_number }}
+          tag_name: v${{ steps.ver.outputs.name }}
+          name: Family Notifier ${{ steps.ver.outputs.name }}
           body: ${{ github.event.head_commit.message }}
           files: |
             app-release.apk

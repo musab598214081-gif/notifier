@@ -391,3 +391,22 @@ class MainActivity : AppCompatActivity() {
         "ok"
     } catch (_: Exception) { "" }
 }
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    // ...existing WebView setup...
+    pendingUrl = intent?.dataString          // link that opened the app
+}
+
+override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    intent.dataString?.let { handOver(it) }  // app already open
+}
+
+// after the page has finished loading (onPageFinished):
+pendingUrl?.let { handOver(it); pendingUrl = null }
+
+private fun handOver(url: String) {
+    val js = "window.familyOpen && familyOpen(" + JSONObject.quote(url) + ")"
+    webView.evaluateJavascript(js, null)
+}

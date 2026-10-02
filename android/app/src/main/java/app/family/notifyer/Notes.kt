@@ -8,7 +8,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
-import android.media.RingtoneManager
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
@@ -26,7 +26,12 @@ import kotlin.math.abs
  *  - with the app on screen the page shows things itself, so nothing is shown.
  */
 object Notes {
-    const val CH_CALL = "calls_v1"
+    /* calls_v2: calls_v1 carried its own vibration pattern. A channel's
+       sound and vibration are fixed when it is first created, so the only
+       way to hand them back to the phone on phones that already have the
+       app is a new channel; the old one is removed below. */
+    const val CH_CALL = "calls_v2"
+    private const val CH_CALL_OLD = "calls_v1"
     const val CH_MSG = "messages_v1"
     const val CH_MISSED = "missed_v1"
     const val CH_ONGOING = "ongoing_v1"
@@ -37,24 +42,38 @@ object Notes {
     private const val ID_OTHER = 4
     const val ID_ONGOING = 5
 
-    private val CALL_VIB = longArrayOf(0, 700, 300, 700, 300, 700, 300, 700)
     private val CALLING = Regex("\\s+is calling you.*$", RegexOption.IGNORE_CASE)
     private val msgLines = HashMap<String, MutableList<String>>()
 
+    /* Every sound and vibration is the phone's own: the ringtone chosen in
+       Sound & vibration for a call (on the ring stream, so the ring volume
+       applies) and the phone's notification sound for the rest, with the
+       phone's default vibration for each. The URIs are the symbolic
+       "current default" ones, so a ringtone changed in the phone's settings
+       is used from the next call. Do Not Disturb is never bypassed. */
     fun channels(c: Context) {
         val nm = c.getSystemService(NotificationManager::class.java)
+        if (nm.getNotificationChannel(CH_CALL_OLD) != null) nm.deleteNotificationChannel(CH_CALL_OLD)
         if (nm.getNotificationChannel(CH_CALL) != null) return
         val calls = NotificationChannel(CH_CALL, c.getString(R.string.ch_calls), NotificationManager.IMPORTANCE_HIGH).apply {
-            setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
+            setSound(Settings.System.DEFAULT_RINGTONE_URI,
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
-            enableVibration(true)
-            vibrationPattern = CALL_VIB
+            enableVibration(true)              /* no pattern of our own: the phone's */
+            setBypassDnd(false)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
-        val msgs = NotificationChannel(CH_MSG, c.getString(R.string.ch_messages), NotificationManager.IMPORTANCE_HIGH)
-        val missed = NotificationChannel(CH_MISSED, c.getString(R.string.ch_missed), NotificationManager.IMPORTANCE_DEFAULT)
+        val noteSound = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
+        val msgs = NotificationChannel(CH_MSG, c.getString(R.string.ch_messages), NotificationManager.IMPORTANCE_HIGH).apply {
+            setSound(Settings.System.DEFAULT_NOTIFICATION_URI, noteSound)
+            enableVibration(true)
+        }
+        val missed = NotificationChannel(CH_MISSED, c.getString(R.string.ch_missed), NotificationManager.IMPORTANCE_DEFAULT).apply {
+            setSound(Settings.System.DEFAULT_NOTIFICATION_URI, noteSound)
+        }
         val ongoing = NotificationChannel(CH_ONGOING, c.getString(R.string.ch_ongoing), NotificationManager.IMPORTANCE_LOW)
         nm.createNotificationChannels(listOf(calls, msgs, missed, ongoing))
     }
@@ -130,7 +149,6 @@ object Notes {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
-            .setVibrate(CALL_VIB)
             .setContentIntent(activity(c, open, "o$tag"))
             .setFullScreenIntent(activity(c, full, "f$tag"), true)
             .setStyle(NotificationCompat.CallStyle.forIncomingCall(person, dec, activity(c, ans, "a$tag")))

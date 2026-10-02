@@ -16,7 +16,7 @@ class FamilyAppBridge(private val a: MainActivity) {
         when (m.str("t")) {
             "cfg" -> { m.remove("t"); Store.setCfg(c, m) }
             "lang" -> Store.setLang(c, m.str("v") ?: "en")
-            "silence" -> m.str("tag")?.let { Store.silence(c, it); Notes.stopRing(c, it) }
+            "silence" -> m.str("tag")?.let { Store.silence(c, it); Notes.stopRing(c, it); FamilySounds.CallRinger.stop(c) }
             "audible" -> m.str("tag")?.let {
                 if (m.optBoolean("on")) {
                     Store.audible.add(it)
@@ -42,4 +42,32 @@ class FamilyAppBridge(private val a: MainActivity) {
 
     @JavascriptInterface
     fun saveFile(name: String, mime: String, b64: String): String = a.saveFile(name, mime, b64)
+
+    /* ---- the phone's own sounds, for the page while the app is on screen.
+       With these present the page plays nothing of its own (see
+       appSounds() in index.html). */
+
+    /** An incoming call: on = ring with the phone's ringtone, at its ring
+        volume, vibrating as the phone does; off = stop. "ok" when ringing
+        out loud, "silent" when the phone is on silent, vibrate or Do Not
+        Disturb. One ring, never two: the notification's own ring for the
+        same call is taken down first. */
+    @JavascriptInterface
+    fun ring(on: Boolean, tag: String): String {
+        val c = a.applicationContext
+        return if (on) {
+            if (tag.isNotEmpty()) Notes.stopRing(c, tag)
+            FamilySounds.CallRinger.start(c, tag)
+        } else {
+            FamilySounds.CallRinger.stop(c); "ok"
+        }
+    }
+
+    /** The phone's notification sound, once, at its notification volume. */
+    @JavascriptInterface
+    fun note(): String = FamilySounds.note(a.applicationContext)
+
+    /** The phone's notification settings for this app. */
+    @JavascriptInterface
+    fun openSoundSettings() { a.runOnUiThread { FamilySounds.openSettings(a) } }
 }

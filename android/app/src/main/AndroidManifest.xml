@@ -41,13 +41,11 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <<intent-filter android:autoVerify="true">
-    <action android:name="android.intent.action.VIEW" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <category android:name="android.intent.category.BROWSABLE" />
-    <data android:scheme="https" android:host="musab598214081-gif.github.io" />
-</intent-filter>>
-            <intent-filter>
+            <!-- The family's links (invitations, notifications) open here.
+                 autoVerify: Android checks /.well-known/assetlinks.json on the
+                 site once, and from then on opens these links in the app
+                 directly instead of the browser. -->
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

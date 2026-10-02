@@ -8,6 +8,11 @@ on:
       - "android/**"
       - ".github/workflows/android-build.yml"
 
+# Lets the workflow publish each build as the newest GitHub Release, where
+# installed phones look for updates (see android/app/.../Updater.kt).
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -63,9 +68,44 @@ jobs:
           UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
           UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
+          UPDATE_URL: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
         run: |
           gradle --no-daemon bundleRelease assembleRelease \
-            -PappUrl="$APP_URL" -PappId="$APP_ID" -PversionCode=$((100 + BUILD_NUMBER))
+            -PappUrl="$APP_URL" -PappId="$APP_ID" -PversionCode=$((100 + BUILD_NUMBER)) \
+            -PupdateUrl="$UPDATE_URL"
+
+      - name: Describe this build for the in-app updater
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          NOTES: ${{ github.event.head_commit.message }}
+          REPO: ${{ github.repository }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk app-release.apk
+          python3 - <<'PY'
+          import hashlib, json, os
+          sha = hashlib.sha256(open("app-release.apk", "rb").read()).hexdigest()
+          n = 100 + int(os.environ["BUILD_NUMBER"])
+          notes = (os.environ.get("NOTES") or "").strip().splitlines()
+          notes = notes[0][:140] if notes else ""
+          json.dump({
+            "versionCode": n,
+            "versionName": "1.0.%d" % n,
+            "url": "https://github.com/%s/releases/latest/download/app-release.apk" % os.environ["REPO"],
+            "sha256": sha,
+            "notes": notes
+          }, open("latest.json", "w"), indent=2)
+          print(open("latest.json").read())
+          PY
+
+      - name: Publish as the latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ 100 + github.run_number }}
+          name: Family Notifier 1.0.${{ 100 + github.run_number }}
+          body: ${{ github.event.head_commit.message }}
+          files: |
+            app-release.apk
+            latest.json
 
       - name: Keep the built app
         uses: actions/upload-artifact@v4

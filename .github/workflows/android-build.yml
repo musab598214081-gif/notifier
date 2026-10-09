@@ -8,8 +8,8 @@ on:
       - "android/**"
       - ".github/workflows/android-build.yml"
 
-# Lets the workflow publish each build as the newest GitHub Release, where
-# installed phones look for updates (see android/app/.../Updater.kt).
+# Lets the workflow publish each direct build as the newest GitHub Release,
+# where installed phones look for updates (see android/app/src/direct/.../Updater.kt).
 permissions:
   contents: write
 
@@ -69,6 +69,8 @@ jobs:
         env:
           FAMILY_SERVER: ${{ vars.FAMILY_SERVER }}
 
+      # play:   the bundle for Google Play (no self-updater, no install permission)
+      # direct: the APK for GitHub Releases (updates itself)
       - name: Build
         working-directory: android
         env:
@@ -79,7 +81,7 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
           UPDATE_URL: ${{ steps.ver.outputs.base }}/app/latest.json
         run: |
-          gradle --no-daemon bundleRelease assembleRelease \
+          gradle --no-daemon bundlePlayRelease assembleDirectRelease \
             -PappUrl="$APP_URL" -PappId="$APP_ID" -PversionCode=${{ steps.ver.outputs.code }} \
             -PupdateUrl="$UPDATE_URL"
 
@@ -89,7 +91,7 @@ jobs:
           NOTES: ${{ github.event.head_commit.message }}
           BASE: ${{ steps.ver.outputs.base }}
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk app-release.apk
+          cp android/app/build/outputs/apk/direct/release/app-direct-release.apk app-release.apk
           python3 - <<'PY'
           import hashlib, json, os
           sha = hashlib.sha256(open("app-release.apk", "rb").read()).hexdigest()
@@ -121,16 +123,19 @@ jobs:
         with:
           name: family-notifier-${{ github.run_number }}
           path: |
-            android/app/build/outputs/bundle/release/app-release.aab
-            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/playRelease/app-play-release.aab
+            android/app/build/outputs/apk/direct/release/app-direct-release.apk
           retention-days: 30
 
+      # Runs once PLAY_SERVICE_ACCOUNT_JSON is set - only after the first
+      # bundle was uploaded by hand in Play Console. "draft" until the app
+      # has been published once; then change it to "completed".
       - name: Send to Google Play (internal testing)
         if: env.HAS_PLAY == 'true'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: ${{ vars.APP_ID }}
-          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          releaseFiles: android/app/build/outputs/bundle/playRelease/app-play-release.aab
           track: internal
-          status: completed
+          status: draft

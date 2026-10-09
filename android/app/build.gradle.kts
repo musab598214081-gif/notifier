@@ -9,10 +9,10 @@ plugins {
 /* Set by the GitHub workflow (repository variables APP_URL and APP_ID). */
 val appUrl = (project.findProperty("appUrl") as String?)?.takeIf { it.isNotBlank() } ?: "https://example.com/"
 val appHost = uri(appUrl).host ?: "example.com"
+val appPath = uri(appUrl).path?.takeIf { it.isNotBlank() } ?: "/"
 val appId = (project.findProperty("appId") as String?)?.takeIf { it.isNotBlank() } ?: "app.family.notifyer"
 val buildNumber = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
-/* Where the app looks for its own updates (latest.json, published by the
-   workflow with every build). Empty: the app never checks. */
+/* Where the direct build looks for its own updates. The Play build never does. */
 val updateUrl = (project.findProperty("updateUrl") as String?)?.takeIf { it.isNotBlank() } ?: ""
 
 android {
@@ -26,11 +26,27 @@ android {
         versionCode = buildNumber
         versionName = "1.0.$buildNumber"
         buildConfigField("String", "APP_URL", "\"$appUrl\"")
-        buildConfigField("String", "UPDATE_URL", "\"$updateUrl\"")
         manifestPlaceholders["appHost"] = appHost
+        manifestPlaceholders["appPath"] = appPath
     }
 
     buildFeatures { buildConfig = true }
+
+    /* play:   uploaded to Google Play, which does its updates.
+       direct: the APK on GitHub Releases, which updates itself. */
+    flavorDimensions += "store"
+    productFlavors {
+        create("play") {
+            dimension = "store"
+            buildConfigField("String", "UPDATE_URL", "\"\"")
+            buildConfigField("boolean", "SELF_UPDATE", "false")
+        }
+        create("direct") {
+            dimension = "store"
+            buildConfigField("String", "UPDATE_URL", "\"$updateUrl\"")
+            buildConfigField("boolean", "SELF_UPDATE", "true")
+        }
+    }
 
     /* The upload key, written out by the workflow from repository secrets. */
     val keystore = System.getenv("UPLOAD_KEYSTORE_FILE")

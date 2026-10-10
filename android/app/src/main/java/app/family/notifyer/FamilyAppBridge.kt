@@ -16,6 +16,8 @@ class FamilyAppBridge(private val a: MainActivity) {
         when (m.str("t")) {
             "cfg" -> { m.remove("t"); Store.setCfg(c, m) }
             "lang" -> Store.setLang(c, m.str("v") ?: "en")
+            "quiet" -> { m.remove("t"); Store.setQuiet(c, m) }
+            "photos" -> m.optJSONObject("map")?.let { Store.setPhotos(c, it) }
             "silence" -> m.str("tag")?.let { Store.silence(c, it); Notes.stopRing(c, it); FamilySounds.CallRinger.stop(c) }
             "audible" -> m.str("tag")?.let {
                 if (m.optBoolean("on")) {

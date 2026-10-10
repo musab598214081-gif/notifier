@@ -2,6 +2,7 @@ package app.family.notifyer
 
 import android.content.Context
 import org.json.JSONObject
+import java.util.Calendar
 import java.util.concurrent.ConcurrentHashMap
 
 /** What the page has told the app (the same things it tells sw.js), kept between launches. */
@@ -28,6 +29,39 @@ object Store {
 
     fun flag(c: Context, name: String) = sp(c).getBoolean(name, false)
     fun setFlag(c: Context, name: String) = sp(c).edit().putBoolean(name, true).apply()
+
+    /** People's photos, as the page keeps them (small square JPEGs). */
+    fun setPhotos(c: Context, j: JSONObject) {
+        val e = sp(c).edit()
+        val keys = j.keys()
+        while (keys.hasNext()) {
+            val id = keys.next()
+            if (!Regex("^[A-Za-z0-9]{3,16}$").matches(id)) continue
+            val d = j.optString(id)
+            if (d.startsWith("data:image/jpeg;base64,") && d.length < 40000) e.putString("ph:$id", d)
+            else if (d.isEmpty()) e.remove("ph:$id")
+        }
+        e.apply()
+    }
+    fun photo(c: Context, id: String?): String? =
+        if (id.isNullOrEmpty()) null else sp(c).getString("ph:$id", null)
+
+    /** Quiet hours: { on, from: "22:00", to: "07:00" }. */
+    fun setQuiet(c: Context, j: JSONObject) = sp(c).edit().putString("quiet", j.toString()).apply()
+    fun quietNow(c: Context): Boolean {
+        val q = runCatching { JSONObject(sp(c).getString("quiet", "{}") ?: "{}") }.getOrNull() ?: return false
+        if (!q.optBoolean("on")) return false
+        val f = mins(q.optString("from"))
+        val t = mins(q.optString("to"))
+        if (f < 0 || t < 0 || f == t) return false
+        val cal = Calendar.getInstance()
+        val now = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+        return if (f < t) now in f until t else now >= f || now < t
+    }
+    private fun mins(s: String): Int {
+        val m = Regex("^(\\d{1,2}):(\\d{2})$").find(s) ?: return -1
+        return m.groupValues[1].toInt() * 60 + m.groupValues[2].toInt()
+    }
 
     /** Calls answered, declined or ended here: their later rings stay quiet (as sw.js does). */
     @Synchronized fun silence(c: Context, tag: String) {

@@ -39,6 +39,7 @@ object Net {
         val me = cfg.str("me") ?: return null
         val b = JSONObject().put("me", me)
         cfg.str("sec")?.let { b.put("sec", it) }
+        cfg.str("dk")?.let { b.put("dk", it) }
         return b
     }
 

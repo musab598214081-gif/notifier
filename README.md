@@ -17,3 +17,20 @@ internal testing track. **Start with [SETUP.md](SETUP.md).**
     .github/workflows/
       android-build.yml           builds, and uploads to Play
       make-upload-key.yml         run once: makes the signing key
+      ios-build.yml               builds the iOS app and uploads it to TestFlight
+    ios/                          the iPhone app (Swift, WKWebView) - see ios/APPSTORE.md
+
+## Build locally with Docker (any PC)
+
+Only Docker is needed — no JDK, Gradle or Android SDK.
+
+    cp .env.example .env          # set APP_URL / APP_ID (optional)
+    docker compose build          # once per PC (downloads the Android SDK)
+    docker compose run --rm build # APKs land in ./dist
+
+- Put your real `google-services.json` in `android/app/` for working push
+  notifications; without it a placeholder is used and the app still builds.
+- Release/Play bundle: set `GRADLE_TASKS="bundlePlayRelease assembleDirectRelease"`
+  in `.env`. Local release builds are unsigned; official signed builds come from
+  GitHub Actions.
+- Toolchain versions (JDK 17, Gradle 8.14.3, SDK 36) match CI.

@@ -1,0 +1,43 @@
+# Generated into FamilyNotifier.xcodeproj by XcodeGen (`xcodegen generate`).
+# Values come from the environment, like the Android build:
+#   APP_URL, APP_ID, APP_HOST, BUILD_NUMBER, TEAM_ID  (see .github/workflows/ios-build.yml)
+name: FamilyNotifier
+options:
+  bundleIdPrefix: app.family
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "${BUILD_NUMBER}"
+    DEVELOPMENT_TEAM: "${TEAM_ID}"
+    TARGETED_DEVICE_FAMILY: "1"          # iPhone only (no iPad screenshots needed)
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: 11.0.0
+targets:
+  FamilyNotifier:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes: ["Info.plist", "FamilyNotifier.entitlements"]
+    dependencies:
+      - package: Firebase
+        product: FirebaseMessaging
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "${APP_ID}"
+        PRODUCT_NAME: FamilyNotifier
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/FamilyNotifier.entitlements
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        APP_URL: "${APP_URL}"
+        APP_HOST: "${APP_HOST}"
+    scheme:
+      testTargets: []

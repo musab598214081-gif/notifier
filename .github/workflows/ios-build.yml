@@ -1,0 +1,116 @@
+name: Build the iOS app
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload the build to App Store Connect (TestFlight)"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-build.yml"
+
+jobs:
+  build:
+    runs-on: macos-15
+    env:
+      APP_URL: ${{ vars.APP_URL }}
+      APP_ID: ${{ vars.APP_ID }}
+      TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the setup
+        env:
+          GS: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+          KEY: ${{ secrets.APPSTORE_API_KEY_P8 }}
+          KID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ISS: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+        run: |
+          missing=""
+          [ -n "$APP_URL" ] || missing="$missing APP_URL(variable)"
+          [ -n "$APP_ID" ]  || missing="$missing APP_ID(variable)"
+          [ -n "$TEAM_ID" ] || missing="$missing APPLE_TEAM_ID(variable)"
+          [ -n "$GS" ]      || missing="$missing GOOGLE_SERVICE_INFO_PLIST(secret)"
+          [ -n "$KEY" ]     || missing="$missing APPSTORE_API_KEY_P8(secret)"
+          [ -n "$KID" ]     || missing="$missing APPSTORE_API_KEY_ID(secret)"
+          [ -n "$ISS" ]     || missing="$missing APPSTORE_API_ISSUER_ID(secret)"
+          if [ -n "$missing" ]; then
+            echo "::error::Not set up yet - missing:$missing. See ios/APPSTORE.md, step 2."
+            exit 1
+          fi
+
+      - name: Build settings
+        run: |
+          echo "APP_HOST=$(echo "$APP_URL" | sed -E 's#^https://([^/:]+).*#\1#')" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$((100 + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+
+      - name: Put the secrets in place
+        env:
+          GS: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+          KEY: ${{ secrets.APPSTORE_API_KEY_P8 }}
+          KID: ${{ secrets.APPSTORE_API_KEY_ID }}
+        run: |
+          printf '%s' "$GS" > ios/App/GoogleService-Info.plist
+          plutil -lint ios/App/GoogleService-Info.plist
+          # Must be the iOS file for this bundle id, not the Android one.
+          [ "$(plutil -extract BUNDLE_ID raw ios/App/GoogleService-Info.plist)" = "$APP_ID" ] \
+            || { echo "::error::GOOGLE_SERVICE_INFO_PLIST is for a different bundle id than APP_ID"; exit 1; }
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          printf '%s' "$KEY" > "$HOME/.appstoreconnect/private_keys/AuthKey_$KID.p8"
+          sed -i '' "s/__TEAM_ID__/$TEAM_ID/" ios/ExportOptions.plist
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Archive
+        working-directory: ios
+        env:
+          KID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ISS: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+        run: |
+          xcodebuild archive \
+            -project FamilyNotifier.xcodeproj -scheme FamilyNotifier \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath build/FamilyNotifier.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/.appstoreconnect/private_keys/AuthKey_$KID.p8" \
+            -authenticationKeyID "$KID" -authenticationKeyIssuerID "$ISS"
+
+      - name: Export the .ipa
+        working-directory: ios
+        env:
+          KID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ISS: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/FamilyNotifier.xcarchive \
+            -exportOptionsPlist ExportOptions.plist -exportPath build/ipa \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/.appstoreconnect/private_keys/AuthKey_$KID.p8" \
+            -authenticationKeyID "$KID" -authenticationKeyIssuerID "$ISS"
+          ls build/ipa
+
+      - name: Keep the built app
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-notifier-ios-${{ github.run_number }}
+          path: ios/build/ipa/*.ipa
+          retention-days: 30
+
+      # Lands in TestFlight after Apple's processing (about 10-30 minutes);
+      # submit it for review from App Store Connect.
+      - name: Upload to App Store Connect
+        if: github.event_name == 'push' || inputs.upload
+        env:
+          KID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          ISS: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+        run: |
+          xcrun altool --upload-app --type ios -f ios/build/ipa/FamilyNotifier.ipa \
+            --apiKey "$KID" --apiIssuer "$ISS"

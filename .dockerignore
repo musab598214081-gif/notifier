@@ -1,0 +1,6 @@
+.git
+dist
+.env
+android/.gradle
+android/app/build
+android/build

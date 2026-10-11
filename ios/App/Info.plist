@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleDisplayName</key><string>Family Notifier</string>
+  <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>CFBundleLocalizations</key><array><string>en</string><string>ar</string></array>
+  <key>LSRequiresIPhoneOS</key><true/>
+  <key>FamilyAppURL</key><string>$(APP_URL)</string>
+  <key>FamilyAppHost</key><string>$(APP_HOST)</string>
+  <key>ITSAppUsesNonExemptEncryption</key><false/>
+  <key>UIApplicationSceneManifest</key>
+  <dict>
+    <key>UIApplicationSupportsMultipleScenes</key><false/>
+  </dict>
+  <key>UILaunchScreen</key>
+  <dict>
+    <key>UIColorName</key><string>LaunchBg</string>
+  </dict>
+  <key>UIBackgroundModes</key>
+  <array><string>remote-notification</string><string>audio</string></array>
+  <key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>
+  <key>UISupportedInterfaceOrientations</key>
+  <array><string>UIInterfaceOrientationPortrait</string></array>
+  <key>UISupportedInterfaceOrientations~ipad</key>
+  <array><string>UIInterfaceOrientationPortrait</string></array>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Family Notifier uses the microphone so your family can hear you in calls and voice messages.</string>
+  <key>NSCameraUsageDescription</key>
+  <string>Family Notifier uses the camera for video calls and for photos you send to your family.</string>
+  <key>NSPhotoLibraryAddUsageDescription</key>
+  <string>Family Notifier saves pictures and files from a chat to your photo library when you choose to save them.</string>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Family Notifier uses your location only when you choose to share it in a chat.</string>
+</dict>
+</plist>

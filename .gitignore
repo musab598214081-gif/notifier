@@ -1,0 +1,17 @@
+.env
+dist/
+.gradle/
+build/
+local.properties
+android/app/google-services.json
+*.jks
+*.keystore
+ios/GoogleService-Info.plist
+ios/App/GoogleService-Info.plist
+ios/*.xcodeproj/
+ios/build/
+*.xcarchive
+*.ipa
+*.p8
+*.p12
+*.mobileprovision

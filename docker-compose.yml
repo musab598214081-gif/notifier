@@ -1,0 +1,17 @@
+services:
+  build:
+    build: .
+    # Android's build tools only ship for x86-64; this also makes Apple Silicon work.
+    platform: linux/amd64
+    environment:
+      APP_URL: ${APP_URL:-https://example.com/}
+      APP_ID: ${APP_ID:-app.family.notifyer}
+      VERSION_CODE: ${VERSION_CODE:-1}
+      UPDATE_URL: ${UPDATE_URL:-}
+      GRADLE_TASKS: ${GRADLE_TASKS:-assembleDirectDebug}
+    volumes:
+      - .:/workspace
+      - gradle-cache:/gradle-cache   # keeps dependency downloads between builds
+
+volumes:
+  gradle-cache:

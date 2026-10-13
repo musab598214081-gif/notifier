@@ -149,7 +149,19 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        if (!handle(intent, cold = true)) web.loadUrl(BuildConfig.APP_URL)
+        val opened = handle(intent, cold = true)
+        if (!opened) web.loadUrl(BuildConfig.APP_URL)
+        /* A fresh install from Google Play that began with an invitation:
+           open it. Not when this phone is already signed in to a family. */
+        if (!opened && Store.cfg(this) == null) {
+            InstallReferrer.check(this) { url ->
+                runOnUiThread {
+                    if (isDestroyed || Store.cfg(this) != null) return@runOnUiThread
+                    if (pageReady) web.evaluateJavascript("window.familyOpen && familyOpen(${JSONObject.quote(url)})", null)
+                    else web.loadUrl(url)
+                }
+            }
+        }
         fetchToken()
         firstRun()
     }

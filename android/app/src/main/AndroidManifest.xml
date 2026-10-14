@@ -59,6 +59,19 @@
             </intent-filter>
         </activity>
 
+        <!-- An incoming call on a locked or dark phone: the ringing screen
+             only (IncomingCallActivity), in its own task, so the app itself
+             opens only once the call is answered. -->
+        <activity
+            android:name=".IncomingCallActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection" />
+
         <service
             android:name=".PushService"
             android:exported="false">

@@ -145,9 +145,13 @@ object Notes {
         val who = (d.str("title") ?: "").replace(CALLING, "").ifBlank { c.getString(R.string.app_name) }
 
         val open = MainActivity.intent(c, url, tag, kind, MainActivity.HOW_OPEN)
-        val full = MainActivity.intent(c, url, tag, kind, MainActivity.HOW_FULL)
+        /* Locked or dark: the phone's own kind of ringing screen, not the app. */
+        val full = IncomingCallActivity.intent(c, tag, kind, who,
+            if (kind == "group") "Group call" else "Incoming call", d.str("from"), answer)
         val ans = MainActivity.intent(c, answer, tag, kind, MainActivity.HOW_ANSWER)
-        val dec = NoteActionReceiver.pending(c, NoteActionReceiver.DECLINE, tag, d.optJSONObject("dec")?.toString())
+        val decBody = d.optJSONObject("dec")?.toString()
+        val dec = NoteActionReceiver.pending(c, NoteActionReceiver.DECLINE, tag, decBody)
+        synchronized(declines) { declines[tag] = decBody }
 
         val pic = photo(c, d.str("from"))
         val pb = Person.Builder().setName(who).setImportant(true)
@@ -167,14 +171,34 @@ object Notes {
             .setStyle(NotificationCompat.CallStyle.forIncomingCall(person, dec, activity(c, ans, "a$tag")))
             .setTimeoutAfter(65_000)
         if (pic != null) nb.setLargeIcon(pic)
+        synchronized(rings) { rings[tag] = nb }
         val n = nb.build()
         /* The ringtone loops, like a phone call, until the notification goes. */
         n.flags = n.flags or Notification.FLAG_INSISTENT
         notify(c, "c:$tag", ID_CALL, n)
     }
 
+    /* The ringing calls' notifications (to quieten one) and Decline's
+       message to the server (for the ringing screen's own Decline). */
+    private val rings = HashMap<String, NotificationCompat.Builder>()
+    private val declines = HashMap<String, String?>()
+
+    fun isRinging(c: Context, tag: String): Boolean =
+        c.getSystemService(NotificationManager::class.java).activeNotifications.any { it.tag == "c:$tag" }
+
+    fun declineBody(tag: String): String? = synchronized(declines) { declines[tag] }
+
+    /** A volume key on the ringing screen: the ring goes quiet, the call stays. */
+    fun quietRing(c: Context, tag: String) {
+        val nb = synchronized(rings) { rings[tag] } ?: return
+        if (!isRinging(c, tag)) return
+        notify(c, "c:$tag", ID_CALL, nb.setSilent(true).setOnlyAlertOnce(true).build())
+    }
+
     fun stopRing(c: Context, tag: String) {
         NotificationManagerCompat.from(c).cancel("c:$tag", ID_CALL)
+        synchronized(rings) { rings.remove(tag) }
+        IncomingCallActivity.close(tag)
     }
 
     private fun missed(c: Context, d: JSONObject) {
@@ -301,7 +325,7 @@ object Notes {
     }
 
     /** A person's photo, as a round bitmap - or null when they have none. */
-    private fun photo(c: Context, id: String?): Bitmap? {
+    fun photo(c: Context, id: String?): Bitmap? {
         val d = Store.photo(c, id) ?: return null
         return try {
             val bytes = Base64.decode(d.substringAfter(","), Base64.DEFAULT)

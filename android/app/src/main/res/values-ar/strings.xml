@@ -9,4 +9,6 @@
     <string name="fsi_body">لكي تملأ المكالمة الواردة الشاشة وترنّ مثل مكالمة الهاتف العادية، اسمح لـ Family Notifier بعرض الإشعارات بملء الشاشة.</string>
     <string name="fsi_go">سماح</string>
     <string name="later">ليس الآن</string>
+    <string name="call_answer">رد</string>
+    <string name="call_decline">رفض</string>
 </resources>

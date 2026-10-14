@@ -144,8 +144,15 @@ class MainActivity : AppCompatActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                /* Back to the home screen, not closed: the family connection stays up. */
-                if (web.canGoBack()) web.goBack() else moveTaskToBack(true)
+                /* The page first: it closes what is open on top (a menu, a
+                   sheet, a settings page, a conversation), like any app. */
+                web.evaluateJavascript("window.familyBack ? familyBack() : null") { r ->
+                    if (r == "true" || isDestroyed) return@evaluateJavascript
+                    /* Nothing open: back to the home screen, not closed - the
+                       family connection stays up. (A page too old to answer
+                       still gets its own history.) */
+                    if (r != "false" && web.canGoBack()) web.goBack() else moveTaskToBack(true)
+                }
             }
         })
 
@@ -351,20 +358,29 @@ class MainActivity : AppCompatActivity() {
         atStart.launch(want.toTypedArray())
     }
 
+    /** "ok" when a ringing call can fill a locked phone's screen; "off" when
+        Android 14+ is waiting for the person to allow it. */
+    fun fullScreenState(): String =
+        if (Build.VERSION.SDK_INT < 34 || getSystemService(NotificationManager::class.java).canUseFullScreenIntent()) "ok" else "off"
+
+    /** The page's "Allow full-screen calls" button: straight to the phone's setting. */
+    fun openFullScreenSettings() {
+        if (Build.VERSION.SDK_INT < 34) return
+        recheckPush = true
+        try {
+            startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")))
+        } catch (_: Exception) {}
+    }
+
     /** Android 14+ lets calling apps fill the screen only once the person allows it. */
     private fun askFullScreen() {
         if (Build.VERSION.SDK_INT < 34 || Store.flag(this, "askedFsi")) return
-        val nm = getSystemService(NotificationManager::class.java)
-        if (nm.canUseFullScreenIntent()) return
+        if (fullScreenState() == "ok") return
         Store.setFlag(this, "askedFsi")
         AlertDialog.Builder(this)
             .setTitle(R.string.fsi_title)
             .setMessage(R.string.fsi_body)
-            .setPositiveButton(R.string.fsi_go) { _, _ ->
-                try {
-                    startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")))
-                } catch (_: Exception) {}
-            }
+            .setPositiveButton(R.string.fsi_go) { _, _ -> openFullScreenSettings() }
             .setNegativeButton(R.string.later, null)
             .show()
     }

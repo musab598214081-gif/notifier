@@ -42,6 +42,14 @@ class FamilyAppBridge(private val a: MainActivity) {
     @JavascriptInterface
     fun askNotify() { a.runOnUiThread { a.askNotify() } }
 
+    /** "ok" when an incoming call can fill the locked screen, "off" when the
+        phone (Android 14+) still has to allow it - see openFullScreen(). */
+    @JavascriptInterface
+    fun fullScreenState(): String = a.fullScreenState()
+
+    @JavascriptInterface
+    fun openFullScreen() { a.runOnUiThread { a.openFullScreenSettings() } }
+
     @JavascriptInterface
     fun saveFile(name: String, mime: String, b64: String): String = a.saveFile(name, mime, b64)
 

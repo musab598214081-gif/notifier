@@ -1,7 +1,9 @@
 package app.family.notifyer
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.media.AudioDeviceCallback
+import android.media.AudioFocusRequest
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
@@ -44,6 +46,19 @@ class FamilyAudioBridge(private val host: MainActivity) {
         else null
 
     @Volatile private var wanted = "off"
+
+    /* The call has the phone's sound to itself, as a phone call does:
+       music or a video pauses, other apps' sounds duck, and they come
+       back when the call ends. */
+    private val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+        .setAudioAttributes(AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+        .setAcceptsDelayedFocusGain(false)
+        .setWillPauseWhenDucked(false)
+        .setOnAudioFocusChangeListener({ }, main)
+        .build()
+    private var focused = false
     /* Where this bridge last put the sound, to tell its own changes from others'. */
     @Volatile private var placed = ""
     private var guardSince = 0L
@@ -128,11 +143,13 @@ class FamilyAudioBridge(private val host: MainActivity) {
         if (wanted == "off") {
             if (Build.VERSION.SDK_INT >= 31) am.clearCommunicationDevice() else legacy(false)
             am.mode = AudioManager.MODE_NORMAL
+            if (focused) { try { am.abandonAudioFocusRequest(focus) } catch (_: Exception) {}; focused = false }
             proximityOn(false)
             placed = ""
             return ""
         }
         am.mode = AudioManager.MODE_IN_COMMUNICATION
+        if (!focused) focused = try { am.requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED } catch (_: Exception) { false }
 
         /* Headphones always win, in either mode - as in a phone call. */
         val outs = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)

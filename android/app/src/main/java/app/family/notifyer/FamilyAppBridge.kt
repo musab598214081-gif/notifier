@@ -66,6 +66,12 @@ class FamilyAppBridge(private val a: MainActivity) {
     fun ring(on: Boolean, tag: String): String {
         val c = a.applicationContext
         return if (on) {
+            /* The app is not on screen (in the background, or the phone is
+               locked): the call notification and its ringing screen ring,
+               as a phone call does, and the app stays closed until Answer.
+               "silent" tells the page it isn't ringing here, so the
+               notification's rings go on. */
+            if (!Store.foreground) return "silent"
             if (tag.isNotEmpty()) Notes.stopRing(c, tag)
             FamilySounds.CallRinger.start(c, tag)
         } else {

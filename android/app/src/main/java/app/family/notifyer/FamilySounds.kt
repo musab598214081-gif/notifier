@@ -77,6 +77,10 @@ object FamilySounds {
             return if (tone != null) "ok" else "silent"
         }
 
+        /** The call ringing on screen right now ("" when none). */
+        @Synchronized
+        fun ringing(): String = if (tone != null || vibrating) tag else ""
+
         @Synchronized
         fun stop(c: Context) {
             try { tone?.stop() } catch (_: Exception) {}

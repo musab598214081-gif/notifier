@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity() {
     @Volatile var inCall = false
         private set
     private var recheckPush = false
+    private var rendererWas: Pair<Int, Boolean>? = null
 
     private var pendingPerm: PermissionRequest? = null
     private var pendingGeo: Pair<String, GeolocationPermissions.Callback>? = null
@@ -191,6 +192,16 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         Store.foreground = false
+        /* A call ringing on screen, and the app leaves it (the phone is
+           locked, say): it goes back to ringing as a phone call - the call
+           notification and, on a locked phone, the ringing screen - so it
+           can still be answered without opening the app first. */
+        val ringingTag = FamilySounds.CallRinger.ringing()
+        if (ringingTag.isNotEmpty()) {
+            FamilySounds.CallRinger.stop(this)
+            Store.audible.remove(ringingTag)
+            js("window.reportAudible && reportAudible(${JSONObject.quote(ringingTag)}, false)")
+        }
         /* Paused (so the page knows it is hidden) - except during a call,
            which must keep going while you use another app. */
         if (!inCall) web.onPause()
@@ -330,6 +341,14 @@ class MainActivity : AppCompatActivity() {
     /** From FamilyAudioBridge: a call has started or ended. */
     fun callActive(on: Boolean) = runOnUiThread {
         inCall = on
+        /* During a call the page keeps full priority even when not on
+           screen, so the call's sound isn't starved behind another app. */
+        try {
+            if (on) {
+                if (rendererWas == null) rendererWas = web.rendererRequestedPriority to web.rendererPriorityWaivedWhenNotVisible
+                web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+            } else rendererWas?.let { web.setRendererPriorityPolicy(it.first, it.second); rendererWas = null }
+        } catch (_: Exception) {}
         if (on) {
             if (granted(Manifest.permission.RECORD_AUDIO)) CallService.start(this)
         } else {

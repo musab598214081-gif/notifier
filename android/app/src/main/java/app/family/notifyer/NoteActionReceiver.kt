@@ -23,6 +23,12 @@ class NoteActionReceiver : BroadcastReceiver() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
 
+        /** Decline from the ringing screen: the same as the notification's Decline. */
+        fun decline(c: Context, tag: String) {
+            try { pending(c, DECLINE, tag, Notes.declineBody(tag)).send() }
+            catch (_: PendingIntent.CanceledException) { Store.silence(c, tag); Notes.stopRing(c, tag) }
+        }
+
         /** Mutable on purpose: Android puts the typed reply into it. */
         fun reply(c: Context, tag: String, to: String): PendingIntent {
             val i = Intent(c, NoteActionReceiver::class.java)

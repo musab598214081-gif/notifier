@@ -103,6 +103,10 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             askNotify: function(){ post('app', {m:'askNotify'}); },
             saveFile: function(n, t, b){ post('app', {m:'saveFile', n:n, t:t, b:b}); return 'ok'; }
           };
+          window.FamilyUpdate = {
+            check: function(){ post('app', {m:'updCheck'}); },
+            install: function(){ post('app', {m:'updOpen'}); }
+          };
           window.FamilyAudio = {
             setRoute: function(r){ post('audio', {r:r}); return r === 'speaker' ? 'speaker' : r === 'earpiece' ? 'earpiece' : ''; }
           };
@@ -143,6 +147,8 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         case "helper": helper(m["a"] as? String ?? "")
         case "askNotify": askNotify()
         case "saveFile": saveFile(name: m["n"] as? String ?? "", b64: m["b"] as? String ?? "")
+        case "updCheck": updateCheck()
+        case "updOpen": if let u = storeURL { UIApplication.shared.open(u) }
         default: break
         }
     }
@@ -165,6 +171,38 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             Notes.local(title: o["title"] as? String ?? "Family Notifier", body: o["body"] as? String ?? "")
         default: break   /* photos, audible: only used by Android's own notification code */
         }
+    }
+
+    /* ---------------------------------------------------------------- updates */
+
+    /// The app's own page in the App Store, once a newer version is there.
+    private var storeURL: URL?
+
+    /// iPhones can't update an app from inside it: a newer version on the
+    /// App Store is offered on the page's update bar, and its button opens
+    /// the app's own App Store page - its Update button, no searching.
+    /// (With Automatic Updates on, the default, it arrives by itself anyway.)
+    private func updateCheck() {
+        guard let id = Bundle.main.bundleIdentifier,
+              let q = URL(string: "https://itunes.apple.com/lookup?bundleId=\(id)&t=\(Int(Date().timeIntervalSince1970))") else { return }
+        URLSession.shared.dataTask(with: q) { data, _, _ in
+            guard let data, let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let r = (o["results"] as? [[String: Any]])?.first,
+                  let v = r["version"] as? String, let page = r["trackViewUrl"] as? String,
+                  newer(v, than: Config.version) else {
+                self.tellUpdate(["state": "none"]); return
+            }
+            DispatchQueue.main.async {
+                self.storeURL = URL(string: page.replacingOccurrences(of: "https://", with: "itms-apps://"))
+                self.tellUpdate(["state": "available", "name": v, "store": true])
+            }
+        }.resume()
+    }
+
+    private func tellUpdate(_ d: [String: Any]) {
+        guard let j = try? JSONSerialization.data(withJSONObject: d),
+              let s = String(data: j, encoding: .utf8) else { return }
+        WebScreen.js("window.familyUpdate && familyUpdate(\(jsQuote(s)))")
     }
 
     /// The page's "turn on notifications" button.
@@ -265,4 +303,14 @@ private final class WeakHandler: NSObject, WKScriptMessageHandler {
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
         target?.userContentController(c, didReceive: m)
     }
+}
+
+/// "1.0.12" after "1.0.9": compared number by number.
+private func newer(_ a: String, than b: String) -> Bool {
+    let x = a.split(separator: ".").map { Int($0) ?? 0 }, y = b.split(separator: ".").map { Int($0) ?? 0 }
+    for i in 0..<max(x.count, y.count) {
+        let p = i < x.count ? x[i] : 0, q = i < y.count ? y[i] : 0
+        if p != q { return p > q }
+    }
+    return false
 }

@@ -92,4 +92,6 @@ dependencies {
     implementation("com.android.installreferrer:installreferrer:2.2")
     implementation(platform("com.google.firebase:firebase-bom:34.17.0"))
     implementation("com.google.firebase:firebase-messaging")
+    /* The Play build's updates, inside the app (see src/play/.../Updater.kt). */
+    "playImplementation"("com.google.android.play:app-update:2.1.0")
 }

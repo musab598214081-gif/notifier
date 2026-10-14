@@ -10,7 +10,9 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    MARKETING_VERSION: "1.0"
+    # Rises with every build, as on Android (1.0.<build>), so the app can
+    # tell a newer App Store version from its own (see WebScreen.updateCheck).
+    MARKETING_VERSION: "1.0.${BUILD_NUMBER}"
     CURRENT_PROJECT_VERSION: "${BUILD_NUMBER}"
     DEVELOPMENT_TEAM: "${TEAM_ID}"
     TARGETED_DEVICE_FAMILY: "1"          # iPhone only (no iPad screenshots needed)

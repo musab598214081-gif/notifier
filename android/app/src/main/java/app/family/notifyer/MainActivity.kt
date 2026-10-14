@@ -73,7 +73,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var audio: FamilyAudioBridge
     private var host = ""
     private var pageReady = false
-    @Volatile private var inCall = false
+    @Volatile var inCall = false
+        private set
     private var recheckPush = false
 
     private var pendingPerm: PermissionRequest? = null
@@ -184,6 +185,7 @@ class MainActivity : AppCompatActivity() {
         Store.foreground = true
         web.onResume()
         if (recheckPush) { recheckPush = false; js("window.familyPushToken && familyPushToken()") }
+        updater.onResume()
     }
 
     override fun onPause() {
@@ -197,6 +199,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         if (current?.get() === this) current = null
         try { audio.release() } catch (_: Exception) {}
+        updater.release()
         CallService.stop(this)
         web.destroy()
         super.onDestroy()
@@ -333,6 +336,7 @@ class MainActivity : AppCompatActivity() {
             CallService.stop(this)
             showOverLock(false)
             if (!Store.foreground) web.onPause()
+            updater.callEnded()
         }
     }
 

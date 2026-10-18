@@ -1,0 +1,59 @@
+name: Build the iOS app for sideloading
+
+# Separate from ios-build.yml (TestFlight / App Store). Needs no Apple account or
+# secrets: it builds an UNSIGNED .ipa that Sideloadly / AltStore signs on your PC
+# with a free Apple ID. Entitlements are dropped, so push notifications and
+# universal links do not work in this build (use ios-build.yml for those).
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    env:
+      APP_URL: ${{ vars.APP_URL }}
+      APP_ID: ${{ vars.APP_ID || 'app.family.notifyer' }}
+      TEAM_ID: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the setup
+        run: |
+          [ -n "$APP_URL" ] || { echo "::error::Set the APP_URL repository variable (Settings > Secrets and variables > Actions > Variables)."; exit 1; }
+
+      - name: Build settings
+        run: |
+          echo "APP_HOST=$(echo "$APP_URL" | sed -E 's#^https://([^/:]+).*#\1#')" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$((100 + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build (unsigned, no entitlements)
+        working-directory: ios
+        run: |
+          xcodebuild build \
+            -project FamilyNotifier.xcodeproj -scheme FamilyNotifier \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" DEVELOPMENT_TEAM=""
+
+      - name: Package the .ipa
+        working-directory: ios
+        run: |
+          mkdir -p build/ipa/Payload
+          cp -R build/dd/Build/Products/Release-iphoneos/FamilyNotifier.app build/ipa/Payload/
+          (cd build/ipa && zip -qry FamilyNotifier-sideload.ipa Payload)
+          ls -l build/ipa
+
+      - name: Keep the built app
+        uses: actions/upload-artifact@v4
+        with:
+          name: family-notifier-ios-sideload-${{ github.run_number }}
+          path: ios/build/ipa/FamilyNotifier-sideload.ipa
+          retention-days: 30
